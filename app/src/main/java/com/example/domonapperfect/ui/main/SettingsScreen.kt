@@ -2,7 +2,7 @@ package com.example.domonapperfect.ui.main
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -124,7 +124,7 @@ fun SettingsScreen(
                         onClick = onLogout,
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                     ) {
-                        Icon(Icons.Default.ExitToApp, contentDescription = "Выйти")
+                        Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Выйти")
                         Spacer(Modifier.width(8.dp))
                         Text("Выйти из аккаунта")
                     }

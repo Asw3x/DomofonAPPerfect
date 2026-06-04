@@ -133,18 +133,20 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     private fun createNotificationChannels() {
-        val callChannel = NotificationChannel(
-            "call_channel",
-            "Incoming Calls",
-            NotificationManager.IMPORTANCE_HIGH
-        )
-        val autoOpenChannel = NotificationChannel(
-            "auto_open_channel",
-            "Auto Open Notifications",
-            NotificationManager.IMPORTANCE_DEFAULT
-        )
-        val manager = getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannel(callChannel)
-        manager.createNotificationChannel(autoOpenChannel)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            val callChannel = NotificationChannel(
+                "call_channel",
+                "Incoming Calls",
+                NotificationManager.IMPORTANCE_HIGH
+            )
+            val autoOpenChannel = NotificationChannel(
+                "auto_open_channel",
+                "Auto Open Notifications",
+                NotificationManager.IMPORTANCE_DEFAULT
+            )
+            val manager = getSystemService(NotificationManager::class.java)
+            manager.createNotificationChannel(callChannel)
+            manager.createNotificationChannel(autoOpenChannel)
+        }
     }
 }
