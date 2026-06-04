@@ -97,6 +97,14 @@ class AuthRepository(
         prefs.edit().putBoolean("open_button_on_left", enabled).apply()
     }
 
+    fun isRingtoneEnabled(): Boolean {
+        return prefs.getBoolean("ringtone_enabled", true)
+    }
+
+    fun setRingtoneEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("ringtone_enabled", enabled).apply()
+    }
+
     private suspend fun fetchFirebaseToken(): String? = kotlin.coroutines.suspendCoroutine { cont ->
         try {
             com.google.firebase.messaging.FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->

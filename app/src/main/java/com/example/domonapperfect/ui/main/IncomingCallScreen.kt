@@ -32,11 +32,15 @@ fun IncomingCallScreen(
         }
     }
 
+    val isRingtoneEnabled by viewModel.isRingtoneEnabled.collectAsState()
     val context = androidx.compose.ui.platform.LocalContext.current
-    DisposableEffect(Unit) {
-        val ringtoneUri = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_RINGTONE)
-        val ringtone = android.media.RingtoneManager.getRingtone(context, ringtoneUri)
-        ringtone?.play()
+    DisposableEffect(isRingtoneEnabled) {
+        var ringtone: android.media.Ringtone? = null
+        if (isRingtoneEnabled) {
+            val ringtoneUri = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_RINGTONE)
+            ringtone = android.media.RingtoneManager.getRingtone(context, ringtoneUri)
+            ringtone?.play()
+        }
         onDispose {
             ringtone?.stop()
         }

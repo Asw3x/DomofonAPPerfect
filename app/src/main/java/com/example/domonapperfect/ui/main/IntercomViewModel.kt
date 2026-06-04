@@ -20,7 +20,13 @@ class IntercomViewModel(
     private val authRepository: AuthRepository
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(IntercomState())
+    private val _uiState = MutableStateFlow(
+        IntercomState(
+            keys = repository.getCachedKeys(),
+            folders = repository.getCustomFolders(),
+            customizations = repository.getDoorCustomizations()
+        )
+    )
     val uiState: StateFlow<IntercomState> = _uiState.asStateFlow()
 
     val token: String?
@@ -48,6 +54,14 @@ class IntercomViewModel(
     fun setOpenButtonOnLeft(enabled: Boolean) {
         authRepository.setOpenButtonOnLeft(enabled)
         _isOpenButtonOnLeft.value = enabled
+    }
+
+    private val _isRingtoneEnabled = MutableStateFlow(authRepository.isRingtoneEnabled())
+    val isRingtoneEnabled: StateFlow<Boolean> = _isRingtoneEnabled.asStateFlow()
+
+    fun setRingtoneEnabled(enabled: Boolean) {
+        authRepository.setRingtoneEnabled(enabled)
+        _isRingtoneEnabled.value = enabled
     }
 
     fun loadKeys() {

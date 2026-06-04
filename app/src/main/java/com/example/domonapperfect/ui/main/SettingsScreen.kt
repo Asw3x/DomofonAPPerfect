@@ -19,6 +19,8 @@ fun SettingsScreen(
     onCallNotificationOnlyChange: (Boolean) -> Unit,
     isOpenButtonOnLeft: Boolean,
     onOpenButtonOnLeftChange: (Boolean) -> Unit,
+    isRingtoneEnabled: Boolean,
+    onRingtoneEnabledChange: (Boolean) -> Unit,
     onLogout: () -> Unit
 ) {
     Scaffold(
@@ -99,6 +101,21 @@ fun SettingsScreen(
                         Switch(
                             checked = isOpenButtonOnLeft,
                             onCheckedChange = onOpenButtonOnLeftChange
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("Звук звонка", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text("Проигрывать рингтон при вызове", style = MaterialTheme.typography.bodySmall)
+                        }
+                        Switch(
+                            checked = isRingtoneEnabled,
+                            onCheckedChange = onRingtoneEnabledChange
                         )
                     }
 

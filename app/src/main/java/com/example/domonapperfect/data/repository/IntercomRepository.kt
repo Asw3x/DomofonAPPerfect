@@ -21,11 +21,25 @@ class IntercomRepository(
 ) {
     private val foldersKey = "custom_folders"
     private val customizationsKey = "door_customizations"
+    private val cachedKeysKey = "cached_keys"
+    
+    fun getCachedKeys(): List<KeyResponse> {
+        val json = prefs.getString(cachedKeysKey, null) ?: return emptyList()
+        return try {
+            Json.decodeFromString(ListSerializer(KeyResponse.serializer()), json)
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+    
     suspend fun getKeys(): Result<List<KeyResponse>> {
         return try {
             val response = api.getKeys(DoorKeysRequest())
             if (response.isSuccessful) {
-                Result.success(response.body()?.results ?: emptyList())
+                val keys = response.body()?.results ?: emptyList()
+                val json = Json.encodeToString(ListSerializer(KeyResponse.serializer()), keys)
+                prefs.edit().putString(cachedKeysKey, json).apply()
+                Result.success(keys)
             } else {
                 val err = response.errorBody()?.string()
                 Result.failure(Exception("HTTP ${response.code()}: $err"))

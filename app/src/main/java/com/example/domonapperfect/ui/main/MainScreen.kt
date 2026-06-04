@@ -48,6 +48,7 @@ fun MainScreen(
     val autoOpenEnabled by viewModel.autoOpenEnabled.collectAsState()
     val isCallNotificationOnly by viewModel.isCallNotificationOnly.collectAsState()
     val isOpenButtonOnLeft by viewModel.isOpenButtonOnLeft.collectAsState()
+    val isRingtoneEnabled by viewModel.isRingtoneEnabled.collectAsState()
 
     LaunchedEffect(Unit) {
         viewModel.loadKeys()
@@ -242,6 +243,8 @@ fun MainScreen(
                     onCallNotificationOnlyChange = { viewModel.setCallNotificationOnly(it) },
                     isOpenButtonOnLeft = isOpenButtonOnLeft,
                     onOpenButtonOnLeftChange = { viewModel.setOpenButtonOnLeft(it) },
+                    isRingtoneEnabled = isRingtoneEnabled,
+                    onRingtoneEnabledChange = { viewModel.setRingtoneEnabled(it) },
                     onLogout = onLogout
                 )
             } else {
