@@ -21,9 +21,13 @@ class AuthViewModel(private val authRepository: AuthRepository) : ViewModel() {
     }
 
     fun onPhoneChanged(phone: String) {
-        // Ensure +7 prefix isn't completely deleted easily
-        val newPhone = if (!phone.startsWith("+7") && phone.isNotEmpty()) "+7$phone" else phone
-        _uiState.value = _uiState.value.copy(phone = newPhone)
+        val prefix = "+7"
+        if (!phone.startsWith(prefix)) {
+            _uiState.value = _uiState.value.copy(phone = prefix)
+        } else {
+            val digits = phone.substring(2).filter { it.isDigit() }
+            _uiState.value = _uiState.value.copy(phone = prefix + digits.take(10))
+        }
     }
 
     private fun parsePhone(phone: String): Pair<Int, Long>? {

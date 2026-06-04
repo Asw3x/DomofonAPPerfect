@@ -7,7 +7,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.KeyboardOptions
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -37,7 +39,8 @@ fun LoginScreen(
             value = uiState.phone,
             onValueChange = viewModel::onPhoneChanged,
             label = { Text("Phone Number") },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
         )
         
         Spacer(modifier = Modifier.height(16.dp))
@@ -48,7 +51,8 @@ fun LoginScreen(
                 onValueChange = viewModel::onCodeChanged,
                 label = { Text("Code") },
                 visualTransformation = PasswordVisualTransformation(),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword)
             )
             
             Spacer(modifier = Modifier.height(24.dp))
