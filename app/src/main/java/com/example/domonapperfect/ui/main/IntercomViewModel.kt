@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.domonapperfect.data.network.KeyResponse
 import com.example.domonapperfect.data.repository.IntercomRepository
+import com.example.domonapperfect.data.network.CallLogDto
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,6 +29,9 @@ class IntercomViewModel(
         )
     )
     val uiState: StateFlow<IntercomState> = _uiState.asStateFlow()
+
+    private val _callHistory = MutableStateFlow<List<CallLogDto>?>(null)
+    val callHistory: StateFlow<List<CallLogDto>?> = _callHistory.asStateFlow()
 
     val token: String?
         get() = authRepository.token
@@ -84,6 +88,19 @@ class IntercomViewModel(
                     isLoading = false,
                     error = "${e.message} (token: $tkPrefix)"
                 )
+            }
+        }
+    }
+
+    fun loadCallHistory() {
+        viewModelScope.launch {
+            val result = repository.getCallHistory(1, 30)
+            result.onSuccess { logs ->
+                _callHistory.value = logs
+            }.onFailure {
+                if (_callHistory.value == null) {
+                    _callHistory.value = emptyList()
+                }
             }
         }
     }

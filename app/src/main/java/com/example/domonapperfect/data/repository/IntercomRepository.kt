@@ -71,6 +71,20 @@ class IntercomRepository(
         }
     }
 
+    suspend fun getCallHistory(page: Int = 1, perPage: Int = 30): Result<List<com.example.domonapperfect.data.network.CallLogDto>> {
+        return try {
+            val request = com.example.domonapperfect.data.network.CallLogRequest(currentPage = page, perPage = perPage)
+            val response = api.getCallLogs(request)
+            if (response.isSuccessful) {
+                Result.success(response.body()?.results ?: emptyList())
+            } else {
+                Result.failure(Exception("Error getting call history: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     fun getCustomFolders(): List<CustomFolder> {
         val json = prefs.getString(foldersKey, null) ?: return emptyList()
         return try {

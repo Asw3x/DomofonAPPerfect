@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -227,6 +228,12 @@ fun MainScreen(
                 NavigationBarItem(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
+                    icon = { Icon(Icons.Default.History, contentDescription = "История") },
+                    label = { Text("История") }
+                )
+                NavigationBarItem(
+                    selected = selectedTab == 2,
+                    onClick = { selectedTab = 2 },
                     icon = { Icon(Icons.Default.Settings, contentDescription = "Настройки") },
                     label = { Text("Настройки") }
                 )
@@ -235,7 +242,7 @@ fun MainScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         Box(modifier = Modifier.padding(padding).fillMaxSize()) {
-            if (selectedTab == 1) {
+            if (selectedTab == 2) {
                 SettingsScreen(
                     isAutoOpen = autoOpenEnabled,
                     onAutoOpenChange = { viewModel.setAutoOpen(it) },
@@ -247,6 +254,8 @@ fun MainScreen(
                     onRingtoneEnabledChange = { viewModel.setRingtoneEnabled(it) },
                     onLogout = onLogout
                 )
+            } else if (selectedTab == 1) {
+                HistoryScreen(viewModel)
             } else {
                 if (uiState.isLoading && uiState.keys.isEmpty()) {
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))

@@ -58,6 +58,9 @@ interface DomonapApi {
     @POST("client-api/Device/OpenRelayByKeyId")
     suspend fun openRelayByKeyId(@Body request: OpenRelayRequest): Boolean
 
+    @POST("client-api/CallLog/GetCallLogs")
+    suspend fun getCallLogs(@Body request: CallLogRequest): Response<PagedResult<CallLogDto>>
+
     @POST("client-api/Key/GetPagedKeysByKeysType")
     suspend fun getKeys(@Body request: DoorKeysRequest): retrofit2.Response<KeyResponseList>
 
