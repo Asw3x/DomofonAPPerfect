@@ -19,7 +19,6 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import androidx.core.content.ContextCompat
 import kotlinx.coroutines.launch
 import android.view.WindowManager
 
