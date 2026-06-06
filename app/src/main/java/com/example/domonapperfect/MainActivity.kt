@@ -21,6 +21,11 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.launch
 import android.view.WindowManager
+import android.net.Uri
+import android.provider.Settings
+import android.os.PowerManager
+import android.content.Context
+import android.app.NotificationManager
 
 class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -39,11 +44,7 @@ class MainActivity : ComponentActivity() {
     }
     window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 101)
-        }
-    }
+    checkAndRequestPermissions()
 
     enableEdgeToEdge()
     setContent {
@@ -87,5 +88,52 @@ class MainActivity : ComponentActivity() {
       }
     }
     // Removed CallService
+  }
+
+  private fun checkAndRequestPermissions() {
+      // 1. Notifications
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+          if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+              ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 101)
+          }
+      }
+
+      // 2. Full Screen Intent (Android 14+)
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+          val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+          if (!notificationManager.canUseFullScreenIntent()) {
+              try {
+                  startActivity(Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, Uri.parse("package:$packageName")))
+              } catch (e: Exception) {
+                  // Ignore if not supported
+              }
+          }
+      }
+
+      // 3. Overlay permission (SYSTEM_ALERT_WINDOW)
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+          if (!Settings.canDrawOverlays(this)) {
+              try {
+                  val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
+                  startActivity(intent)
+              } catch (e: Exception) {
+                  // Ignore if not supported
+              }
+          }
+      }
+
+      // 4. Ignore Battery Optimizations
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+          val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+          if (!pm.isIgnoringBatteryOptimizations(packageName)) {
+              try {
+                  val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+                  intent.data = Uri.parse("package:$packageName")
+                  startActivity(intent)
+              } catch (e: Exception) {
+                  // Ignore if not supported
+              }
+          }
+      }
   }
 }
