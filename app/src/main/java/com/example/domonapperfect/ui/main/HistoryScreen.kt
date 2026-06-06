@@ -1,5 +1,6 @@
 package com.example.domonapperfect.ui.main
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -19,6 +20,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.graphicsLayer
 import coil.compose.AsyncImage
 import com.example.domonapperfect.data.network.CallLogDto
 import java.text.SimpleDateFormat
@@ -27,6 +34,7 @@ import java.util.Locale
 @Composable
 fun HistoryScreen(viewModel: IntercomViewModel) {
     val callHistory by viewModel.callHistory.collectAsState()
+    var fullScreenImageUrl by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.loadCallHistory()
@@ -47,14 +55,77 @@ fun HistoryScreen(viewModel: IntercomViewModel) {
             modifier = Modifier.fillMaxSize()
         ) {
             items(callHistory!!) { log ->
-                CallHistoryCard(log)
+                CallHistoryCard(log, onImageClick = { url ->
+                    fullScreenImageUrl = url
+                })
+            }
+        }
+        
+        if (fullScreenImageUrl != null) {
+            FullScreenImageDialog(
+                imageUrl = fullScreenImageUrl!!,
+                onDismiss = { fullScreenImageUrl = null }
+            )
+        }
+    }
+}
+
+@Composable
+fun FullScreenImageDialog(imageUrl: String, onDismiss: () -> Unit) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        var scale by remember { mutableStateOf(1f) }
+        var offset by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+                .pointerInput(Unit) {
+                    detectTransformGestures { _, pan, zoom, _ ->
+                        scale = (scale * zoom).coerceIn(1f, 5f)
+                        val extraWidth = (scale - 1) * size.width
+                        val extraHeight = (scale - 1) * size.height
+                        
+                        val maxX = extraWidth / 2
+                        val maxY = extraHeight / 2
+                        
+                        offset = androidx.compose.ui.geometry.Offset(
+                            x = (offset.x + pan.x * scale).coerceIn(-maxX, maxX),
+                            y = (offset.y + pan.y * scale).coerceIn(-maxY, maxY)
+                        )
+                    }
+                }
+        ) {
+            AsyncImage(
+                model = imageUrl,
+                contentDescription = "Full Screen Photo",
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer(
+                        scaleX = scale,
+                        scaleY = scale,
+                        translationX = offset.x,
+                        translationY = offset.y
+                    ),
+                contentScale = ContentScale.Fit
+            )
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp)
+            ) {
+                Icon(Icons.Default.CallEnd, contentDescription = "Close", tint = Color.White) // Temporary icon
             }
         }
     }
 }
 
 @Composable
-fun CallHistoryCard(log: CallLogDto) {
+fun CallHistoryCard(log: CallLogDto, onImageClick: (String) -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -69,7 +140,10 @@ fun CallHistoryCard(log: CallLogDto) {
                 AsyncImage(
                     model = log.photoUrl,
                     contentDescription = "Caller Photo",
-                    modifier = Modifier.size(64.dp).clip(CircleShape),
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(CircleShape)
+                        .clickable { onImageClick(log.photoUrl) },
                     contentScale = ContentScale.Crop
                 )
             } else {
