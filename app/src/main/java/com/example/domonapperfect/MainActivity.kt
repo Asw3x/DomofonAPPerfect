@@ -11,6 +11,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.Box
 import com.example.domonapperfect.theme.DomonapPerfectTheme
 import com.example.domonapperfect.ui.main.IncomingCallScreen
@@ -62,11 +63,47 @@ class MainActivity : ComponentActivity() {
     setContent {
       val application = application as DomonapApplication
       val incomingCall by CallManager.incomingCall.collectAsState()
+      
+      var updateInfo by androidx.compose.runtime.mutableStateOf<UpdateInfo?>(null)
+
+      androidx.compose.runtime.LaunchedEffect(Unit) {
+          try {
+              val packageInfo = packageManager.getPackageInfo(packageName, 0)
+              val currentVersion = packageInfo.versionName ?: "1.0"
+              val update = UpdateManager.checkForUpdates(currentVersion)
+              if (update != null) {
+                  updateInfo = update
+              }
+          } catch (e: Exception) {
+              e.printStackTrace()
+          }
+      }
 
       DomonapPerfectTheme {
         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             Box(modifier = Modifier.fillMaxSize()) {
                 MainNavigation(application)
+                
+                updateInfo?.let { info ->
+                    androidx.compose.material3.AlertDialog(
+                        onDismissRequest = { updateInfo = null },
+                        title = { androidx.compose.material3.Text("Доступно обновление v${info.versionName}") },
+                        text = { androidx.compose.material3.Text(info.releaseNotes) },
+                        confirmButton = {
+                            androidx.compose.material3.TextButton(onClick = {
+                                UpdateManager.downloadAndInstall(this@MainActivity, info.downloadUrl, info.versionName)
+                                updateInfo = null
+                            }) {
+                                androidx.compose.material3.Text("Обновить")
+                            }
+                        },
+                        dismissButton = {
+                            androidx.compose.material3.TextButton(onClick = { updateInfo = null }) {
+                                androidx.compose.material3.Text("Отмена")
+                            }
+                        }
+                    )
+                }
                 
                 incomingCall?.let { callData ->
                     val viewModel: com.example.domonapperfect.ui.main.IntercomViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
