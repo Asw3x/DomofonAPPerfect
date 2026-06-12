@@ -38,35 +38,29 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val doorId = data.entries.firstOrNull { it.key.equals("doorid", ignoreCase = true) }?.value
             ?: data.entries.firstOrNull { it.key.equals("keyid", ignoreCase = true) }?.value
         val title = data.entries.firstOrNull { it.key.equals("title", ignoreCase = true) }?.value
-        val callId = data.entries.firstOrNull { it.key.equals("callid", ignoreCase = true) }?.value
-            ?: data.entries.firstOrNull { it.key.equals("sipaccount", ignoreCase = true) }?.value
+        val sipAccount = data.entries.firstOrNull { it.key.equals("sipaccount", ignoreCase = true) }?.value
+        val callId = data.entries.firstOrNull { it.key.equals("callid", ignoreCase = true) }?.value ?: sipAccount
             
-        Log.d("FCM", "Parsed push: doorId=$doorId, callId=$callId")
+        Log.d("FCM", "Parsed push: doorId=$doorId, callId=$callId, sipAccount=$sipAccount")
         
-        // If it's a "Call ended" push, dismiss the call screen
-        if (title?.contains("завершён", ignoreCase = true) == true || title?.contains("завершен", ignoreCase = true) == true) {
+        // If it's a "Call ended" or "Call answered elsewhere" push, dismiss the call screen
+        if (title?.contains("завершён", ignoreCase = true) == true || 
+            title?.contains("завершен", ignoreCase = true) == true ||
+            title?.contains("принят", ignoreCase = true) == true ||
+            title?.contains("отвечен", ignoreCase = true) == true) {
             CallManager.rejectCall()
             return
         }
 
         if (doorId != null) {
-            handleIncomingCall(doorId, callId)
+            handleIncomingCall(doorId, callId, sipAccount)
         } else {
-            Log.e("FCM", "Received push without doorId: ${message.data}")
-            // Fallback for debugging
-            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            val builder = NotificationCompat.Builder(this, "auto_open_channel")
-                .setSmallIcon(android.R.drawable.ic_dialog_info)
-                .setContentTitle("Unknown Push")
-                .setContentText(message.data.toString())
-                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-                .setStyle(NotificationCompat.BigTextStyle().bigText(message.data.toString()))
-                .setAutoCancel(true)
-            notificationManager.notify(message.hashCode(), builder.build())
+            Log.d("FCM", "Ignored push without doorId: ${message.data}")
+            // Silently ignore instead of showing "Unknown Push"
         }
     }
 
-    private fun handleIncomingCall(doorId: String, callId: String?) {
+    private fun handleIncomingCall(doorId: String, callId: String?, sipAccount: String?) {
         val app = applicationContext as DomonapApplication
         val autoOpen = app.authRepository.isAutoOpenEnabled()
         val isCallNotificationOnly = app.authRepository.isCallNotificationOnly()
@@ -103,15 +97,56 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 val targetKey = keys.find { it.doorId == doorId || it.id == doorId }
                 val keyIdToOpen = targetKey?.id ?: doorId
 
-                CallManager.setIncomingCall(keyIdToOpen, callId)
+                if (app.authRepository.isDoNotDisturbEnabled()) {
+                    Log.d("FCM", "Do Not Disturb is enabled. Rejecting call $callId")
+                    if (callId != null) {
+                        app.intercomRepository.notifyCallEnded(callId)
+                    }
+                    return@launch
+                }
+
+                if (CallManager.isRecentlyOpened(keyIdToOpen)) {
+                    Log.d("FCM", "Door $keyIdToOpen was recently opened. Ignoring incoming call push.")
+                    return@launch
+                }
+
+                CallManager.setIncomingCall(keyIdToOpen, callId, sipAccount)
 
                 val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                 
                 // Currently no CallService, we can just launch MainActivity directly for manual open
                 val callIntent = Intent(this@MyFirebaseMessagingService, MainActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    putExtra("from_call_notification", true)
                 }
                 val pendingIntent = PendingIntent.getActivity(this@MyFirebaseMessagingService, 0, callIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+
+                val powerManager = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+                @Suppress("DEPRECATION")
+                val wakeLock = powerManager.newWakeLock(
+                    android.os.PowerManager.FULL_WAKE_LOCK or
+                    android.os.PowerManager.ACQUIRE_CAUSES_WAKEUP or
+                    android.os.PowerManager.ON_AFTER_RELEASE,
+                    "DomonapPerfect:IncomingCall"
+                )
+                wakeLock.acquire(3000)
+
+                val notificationId = keyIdToOpen.hashCode()
+
+                // Action to Open Door
+                val openIntent = Intent(this@MyFirebaseMessagingService, OpenDoorReceiver::class.java).apply {
+                    action = "com.example.domonapperfect.ACTION_OPEN_DOOR"
+                    putExtra("KEY_ID", keyIdToOpen)
+                    val customName = app.intercomRepository.getDoorCustomizations()[keyIdToOpen]?.customName
+                    putExtra("DOOR_NAME", if (!customName.isNullOrBlank()) customName else (targetKey?.name ?: "Дверь"))
+                    putExtra("NOTIFICATION_ID", notificationId)
+                }
+                val openPendingIntent = PendingIntent.getBroadcast(
+                    this@MyFirebaseMessagingService,
+                    notificationId,
+                    openIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
 
                 val builder = NotificationCompat.Builder(this@MyFirebaseMessagingService, "call_channel")
                     .setSmallIcon(android.R.drawable.ic_dialog_info)
@@ -120,14 +155,50 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                     .setPriority(NotificationCompat.PRIORITY_HIGH)
                     .setCategory(NotificationCompat.CATEGORY_CALL)
                     .setAutoCancel(true)
+                    .addAction(android.R.drawable.ic_lock_idle_lock, "Открыть дверь", openPendingIntent)
 
                 if (!isCallNotificationOnly) {
                     builder.setFullScreenIntent(pendingIntent, true)
+                    
+                    val powerManager = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+                    val isScreenOn = powerManager.isInteractive
+                    
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                        if (android.provider.Settings.canDrawOverlays(this@MyFirebaseMessagingService)) {
+                            if (isScreenOn) {
+                                // Screen is unlocked and we have overlay permission -> show floating window
+                                try {
+                                    val serviceIntent = Intent(this@MyFirebaseMessagingService, FloatingCallService::class.java)
+                                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                                        startForegroundService(serviceIntent)
+                                    } else {
+                                        startService(serviceIntent)
+                                    }
+                                } catch (e: Exception) {
+                                    Log.e("FCM", "Failed to start FloatingCallService", e)
+                                    startActivity(callIntent)
+                                }
+                            } else {
+                                // Screen is off -> force wake and show full screen app
+                                try {
+                                    startActivity(callIntent)
+                                } catch (e: Exception) {
+                                    Log.e("FCM", "Failed to force start activity", e)
+                                }
+                            }
+                        }
+                    } else {
+                        try {
+                            startActivity(callIntent)
+                        } catch (e: Exception) {
+                            Log.e("FCM", "Failed to force start activity", e)
+                        }
+                    }
                 } else {
                     builder.setContentIntent(pendingIntent)
                 }
 
-                notificationManager.notify(keyIdToOpen.hashCode(), builder.build())
+                notificationManager.notify(notificationId, builder.build())
             }
         }
     }

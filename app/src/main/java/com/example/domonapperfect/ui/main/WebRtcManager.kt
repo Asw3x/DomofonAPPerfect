@@ -17,7 +17,8 @@ import java.util.concurrent.TimeUnit
 class WebRtcManager(
     private val context: Context,
     private val token: String,
-    private val videoUrl: String
+    private val videoUrl: String,
+    private val hasAudioPermission: Boolean = false
 ) {
     val eglBase: EglBase = EglBase.create()
     private val peerConnectionFactory: PeerConnectionFactory
@@ -54,6 +55,16 @@ class WebRtcManager(
         startConnection()
     }
 
+    private var localAudioSource: AudioSource? = null
+    private var localAudioTrack: AudioTrack? = null
+
+    fun setMicrophoneEnabled(enabled: Boolean) {
+        if (hasAudioPermission) {
+            localAudioTrack?.setEnabled(enabled)
+            Log.d("WebRtcManager", "Microphone enabled: $enabled")
+        }
+    }
+
     private fun startConnection() {
         val rtcConfig = PeerConnection.RTCConfiguration(
             listOf(PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer())
@@ -82,8 +93,19 @@ class WebRtcManager(
             }
         })
 
-        // Require receiving audio/video
-        peerConnection?.addTransceiver(MediaStreamTrack.MediaType.MEDIA_TYPE_AUDIO, RtpTransceiver.RtpTransceiverInit(RtpTransceiver.RtpTransceiverDirection.RECV_ONLY))
+        if (hasAudioPermission) {
+            // Create local audio track
+            localAudioSource = peerConnectionFactory.createAudioSource(MediaConstraints())
+            localAudioTrack = peerConnectionFactory.createAudioTrack("ARDAMSa0", localAudioSource)
+            localAudioTrack?.setEnabled(false) // Muted by default
+
+            localAudioTrack?.let { track ->
+                peerConnection?.addTrack(track, listOf("ARDAMS"))
+            }
+        }
+
+        val audioDirection = if (hasAudioPermission) RtpTransceiver.RtpTransceiverDirection.SEND_RECV else RtpTransceiver.RtpTransceiverDirection.RECV_ONLY
+        peerConnection?.addTransceiver(MediaStreamTrack.MediaType.MEDIA_TYPE_AUDIO, RtpTransceiver.RtpTransceiverInit(audioDirection))
         peerConnection?.addTransceiver(MediaStreamTrack.MediaType.MEDIA_TYPE_VIDEO, RtpTransceiver.RtpTransceiverInit(RtpTransceiver.RtpTransceiverDirection.RECV_ONLY))
 
         val constraints = MediaConstraints()
@@ -151,6 +173,8 @@ class WebRtcManager(
     }
 
     fun release() {
+        localAudioTrack?.dispose()
+        localAudioSource?.dispose()
         peerConnection?.close()
         peerConnection?.dispose()
         peerConnectionFactory.dispose()

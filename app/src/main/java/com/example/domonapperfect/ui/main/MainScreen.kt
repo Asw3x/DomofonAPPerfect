@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.ContextWrapper
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -17,6 +18,8 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -50,6 +53,7 @@ fun MainScreen(
     val isCallNotificationOnly by viewModel.isCallNotificationOnly.collectAsState()
     val isOpenButtonOnLeft by viewModel.isOpenButtonOnLeft.collectAsState()
     val isRingtoneEnabled by viewModel.isRingtoneEnabled.collectAsState()
+    val isDoNotDisturbEnabled by viewModel.isDoNotDisturbEnabled.collectAsState()
 
     LaunchedEffect(Unit) {
         viewModel.loadKeys()
@@ -124,7 +128,7 @@ fun MainScreen(
                                 Text("Без папки")
                             }
                         }
-                        items(uiState.folders) { folder ->
+                        items(items = uiState.folders, key = { it.id }) { folder ->
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 RadioButton(selected = selectedFolderId == folder.id, onClick = { selectedFolderId = folder.id })
                                 Text(folder.name)
@@ -155,19 +159,15 @@ fun MainScreen(
             )
         ) {
             val context = androidx.compose.ui.platform.LocalContext.current
-            DisposableEffect(Unit) {
-                val activity = context.getActivity()
-                activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-                onDispose {
-                    activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-                }
-            }
+
+            var isMicEnabled by remember { mutableStateOf(false) }
 
             Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
                 VideoPlayer(
                     camera = playingCamera!!,
                     token = viewModel.token,
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 64.dp, vertical = 32.dp)
+                    isMicrophoneEnabled = isMicEnabled,
+                    modifier = Modifier.fillMaxSize().padding(bottom = 100.dp)
                 )
                 
                 Row(
@@ -185,6 +185,22 @@ fun MainScreen(
                             CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
                         } else {
                             Text("Открыть эту дверь", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    
+                    if (!playingCamera!!.webrtcVideoUrl.isNullOrEmpty()) {
+                        Button(
+                            onClick = { isMicEnabled = !isMicEnabled },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isMicEnabled) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary
+                            ),
+                            modifier = Modifier.height(56.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (isMicEnabled) androidx.compose.material.icons.Icons.Default.Mic else androidx.compose.material.icons.Icons.Default.MicOff,
+                                contentDescription = if (isMicEnabled) "Выключить микрофон" else "Включить микрофон",
+                                modifier = Modifier.size(24.dp)
+                            )
                         }
                     }
                     
@@ -252,6 +268,10 @@ fun MainScreen(
                     onOpenButtonOnLeftChange = { viewModel.setOpenButtonOnLeft(it) },
                     isRingtoneEnabled = isRingtoneEnabled,
                     onRingtoneEnabledChange = { viewModel.setRingtoneEnabled(it) },
+                    isDoNotDisturbEnabled = isDoNotDisturbEnabled,
+                    onDoNotDisturbEnabledChange = { viewModel.setDoNotDisturbEnabled(it) },
+                    callWindowDelaySeconds = viewModel.callWindowDelaySeconds.collectAsState().value,
+                    onCallWindowDelayChange = { viewModel.setCallWindowDelaySeconds(it) },
                     onLogout = onLogout
                 )
             } else if (selectedTab == 1) {
@@ -282,7 +302,7 @@ fun MainScreen(
                             item {
                                 Text("Камеры", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
                                 LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                                    items(uniqueCameras) { cam ->
+                                    items(items = uniqueCameras, key = { it.id }) { cam ->
                                         val customName = uiState.customizations[cam.id]?.customName
                                         val displayName = if (customName.isNullOrBlank()) "Камера" else customName
                                         Card(
@@ -295,7 +315,11 @@ fun MainScreen(
                                                     AsyncImage(
                                                         model = cam.videoPreview,
                                                         contentDescription = "Camera Preview",
-                                                        modifier = Modifier.fillMaxWidth().height(160.dp).clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)),
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .height(160.dp)
+                                                            .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+                                                            .clickable { playingCamera = cam },
                                                         contentScale = ContentScale.Crop
                                                     )
                                                 }
@@ -328,7 +352,7 @@ fun MainScreen(
                                         }
                                     }
                                 }
-                                items(folderKeys) { key ->
+                                items(items = folderKeys, key = { it.id }) { key ->
                                     DoorCard(
                                         key = key,
                                         customName = uiState.customizations[key.id]?.customName,
@@ -353,7 +377,7 @@ fun MainScreen(
                             item {
                                 Text(if (uiState.folders.isEmpty()) "Двери" else "Остальные двери", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp, bottom = 8.dp))
                             }
-                            items(uncategorizedKeys) { key ->
+                            items(items = uncategorizedKeys, key = { it.id }) { key ->
                                 DoorCard(
                                     key = key,
                                     customName = uiState.customizations[key.id]?.customName,

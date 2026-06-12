@@ -51,7 +51,21 @@ class IntercomRepository(
 
     suspend fun openRelay(keyId: String): Result<Boolean> {
         return try {
-            val success = api.openRelayByKeyId(OpenRelayRequest(keyId = keyId))
+            try {
+                val success = api.openRelayByKeyId(OpenRelayRequest(keyId = keyId))
+                if (success) {
+                    return Result.success(true)
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("Intercom", "Failed to open by keyId, falling back to doorId", e)
+            }
+            
+            // Fallback to Door ID
+            val keys = getCachedKeys()
+            val targetKey = keys.find { it.id == keyId || it.doorId == keyId }
+            val doorIdToUse = targetKey?.doorId ?: keyId
+            
+            val success = api.openRelayByDoorId(com.example.domonapperfect.data.network.OpenRelayDoorRequest(doorId = doorIdToUse))
             Result.success(success)
         } catch (e: Exception) {
             Result.failure(e)

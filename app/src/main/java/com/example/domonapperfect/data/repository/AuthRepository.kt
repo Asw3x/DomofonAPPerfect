@@ -7,11 +7,17 @@ import com.example.domonapperfect.data.network.ConfirmAuthorizationBody
 import com.example.domonapperfect.data.network.DomonapApi
 import com.example.domonapperfect.data.network.PhoneNumberDto
 
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
+
 class AuthRepository(
     private val api: DomonapApi,
     private val context: Context
 ) {
     private val prefs: SharedPreferences = context.getSharedPreferences("domonap_prefs", Context.MODE_PRIVATE)
+
+    private val _authStateFlow = MutableSharedFlow<Boolean>(extraBufferCapacity = 1)
+    val authStateFlow = _authStateFlow.asSharedFlow()
 
     var token: String?
         get() = prefs.getString("auth_token", null)
@@ -73,6 +79,7 @@ class AuthRepository(
     
     fun logout() {
         token = null
+        _authStateFlow.tryEmit(false)
     }
 
     fun isAutoOpenEnabled(): Boolean = prefs.getBoolean("auto_open_enabled", false)
@@ -103,6 +110,22 @@ class AuthRepository(
 
     fun setRingtoneEnabled(enabled: Boolean) {
         prefs.edit().putBoolean("ringtone_enabled", enabled).apply()
+    }
+
+    fun isDoNotDisturbEnabled(): Boolean {
+        return prefs.getBoolean("dnd_enabled", false)
+    }
+
+    fun setDoNotDisturbEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("dnd_enabled", enabled).apply()
+    }
+
+    fun getCallWindowDelaySeconds(): Int {
+        return prefs.getInt("call_window_delay_seconds", 0)
+    }
+
+    fun setCallWindowDelaySeconds(seconds: Int) {
+        prefs.edit().putInt("call_window_delay_seconds", seconds).apply()
     }
 
     private suspend fun fetchFirebaseToken(): String? = kotlin.coroutines.suspendCoroutine { cont ->

@@ -21,7 +21,10 @@ class DomonapApplication : Application() {
         
         // We will initialize NetworkModule with token provider
         NetworkModule.init(
-            tokenProvider = { authRepository.token }
+            tokenProvider = { authRepository.token },
+            onUnauthorized = {
+                authRepository.logout()
+            }
         )
         
         val prefs = getSharedPreferences("domonap_custom", android.content.Context.MODE_PRIVATE)

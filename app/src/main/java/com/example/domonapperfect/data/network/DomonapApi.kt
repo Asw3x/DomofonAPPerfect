@@ -37,6 +37,9 @@ data class KeyResponse(
 data class OpenRelayRequest(val keyId: String)
 
 @kotlinx.serialization.Serializable
+data class OpenRelayDoorRequest(val doorId: String)
+
+@kotlinx.serialization.Serializable
 data class DoorKeysRequest(
     val currentPage: Int = 1,
     val perPage: Int = 100,
@@ -57,6 +60,9 @@ interface DomonapApi {
     // Client API
     @POST("client-api/Device/OpenRelayByKeyId")
     suspend fun openRelayByKeyId(@Body request: OpenRelayRequest): Boolean
+
+    @POST("client-api/Device/OpenRelayByDoorId")
+    suspend fun openRelayByDoorId(@Body request: OpenRelayDoorRequest): Boolean
 
     @POST("client-api/CallLog/GetCallLogs")
     suspend fun getCallLogs(@Body request: CallLogRequest): Response<PagedResult<CallLogDto>>

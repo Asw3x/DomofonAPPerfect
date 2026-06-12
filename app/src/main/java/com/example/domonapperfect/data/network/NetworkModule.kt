@@ -17,9 +17,11 @@ object NetworkModule {
     }
     
     private var tokenProvider: (() -> String?)? = null
+    private var onUnauthorized: (() -> Unit)? = null
 
-    fun init(tokenProvider: () -> String?) {
+    fun init(tokenProvider: () -> String?, onUnauthorized: () -> Unit) {
         this.tokenProvider = tokenProvider
+        this.onUnauthorized = onUnauthorized
     }
 
     private val instanceId = java.util.UUID.randomUUID().toString()
@@ -35,7 +37,11 @@ object NetworkModule {
                 tokenProvider?.invoke()?.let { token ->
                     requestBuilder.addHeader("Authorization", "Bearer $token")
                 }
-                chain.proceed(requestBuilder.build())
+                val response = chain.proceed(requestBuilder.build())
+                if (response.code == 401) {
+                    onUnauthorized?.invoke()
+                }
+                response
             }
             .addInterceptor(HttpLoggingInterceptor().apply {
                 level = HttpLoggingInterceptor.Level.BODY

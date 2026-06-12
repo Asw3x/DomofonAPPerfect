@@ -21,6 +21,10 @@ fun SettingsScreen(
     onOpenButtonOnLeftChange: (Boolean) -> Unit,
     isRingtoneEnabled: Boolean,
     onRingtoneEnabledChange: (Boolean) -> Unit,
+    isDoNotDisturbEnabled: Boolean,
+    onDoNotDisturbEnabledChange: (Boolean) -> Unit,
+    callWindowDelaySeconds: Int,
+    onCallWindowDelayChange: (Int) -> Unit,
     onLogout: () -> Unit
 ) {
     Scaffold(
@@ -104,6 +108,8 @@ fun SettingsScreen(
                         )
                     }
 
+                    Spacer(modifier = Modifier.height(16.dp))
+
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -116,6 +122,42 @@ fun SettingsScreen(
                         Switch(
                             checked = isRingtoneEnabled,
                             onCheckedChange = onRingtoneEnabledChange
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("Не беспокоить", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                            Text("Игнорировать все звонки с домофона", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                        }
+                        Switch(
+                            checked = isDoNotDisturbEnabled,
+                            onCheckedChange = onDoNotDisturbEnabledChange,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = MaterialTheme.colorScheme.error,
+                                checkedTrackColor = MaterialTheme.colorScheme.errorContainer
+                            )
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                    ) {
+                        Text("Окно просмотра после открытия (сек): $callWindowDelaySeconds", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("Не закрывать звонок сразу после открытия двери", style = MaterialTheme.typography.bodySmall)
+                        Slider(
+                            value = callWindowDelaySeconds.toFloat(),
+                            onValueChange = { onCallWindowDelayChange(it.toInt()) },
+                            valueRange = 0f..15f,
+                            steps = 14
                         )
                     }
 

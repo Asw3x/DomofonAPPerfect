@@ -19,6 +19,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import android.view.WindowManager
 import android.net.Uri
@@ -30,6 +31,16 @@ import android.app.NotificationManager
 class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+
+    if (intent?.action == "com.example.domonapperfect.ACTION_SHORTCUT_OPEN_DOOR") {
+        val receiverIntent = Intent(this, OpenDoorReceiver::class.java).apply {
+            action = "com.example.domonapperfect.ACTION_OPEN_DOOR"
+            intent.extras?.let { putExtras(it) }
+        }
+        sendBroadcast(receiverIntent)
+        finish()
+        return
+    }
 
     // Wake up screen and show over lock screen
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
@@ -45,6 +56,7 @@ class MainActivity : ComponentActivity() {
     window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     
     checkAndRequestPermissions()
+    updateShortcuts()
 
     enableEdgeToEdge()
     setContent {
@@ -65,13 +77,22 @@ class MainActivity : ComponentActivity() {
                         callData = callData,
                         viewModel = viewModel,
                         onAccept = {
+                            val delaySec = viewModel.callWindowDelaySeconds.value
                             viewModel.openDoor(callData.doorId)
+                            CallManager.markDoorOpened(callData.doorId)
                             if (callData.callId != null) {
                                 kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
                                     application.intercomRepository.notifyCallEnded(callData.callId)
                                 }
                             }
-                            CallManager.acceptCall()
+                            if (delaySec > 0) {
+                                kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
+                                    kotlinx.coroutines.delay(delaySec * 1000L)
+                                    CallManager.acceptCall()
+                                }
+                            } else {
+                                CallManager.acceptCall()
+                            }
                         },
                         onReject = {
                             if (callData.callId != null) {
@@ -83,11 +104,35 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                 }
+
+                androidx.compose.runtime.LaunchedEffect(incomingCall) {
+                    if (incomingCall == null && intent?.getBooleanExtra("from_call_notification", false) == true) {
+                        finishAndRemoveTask()
+                    }
+                }
             }
         }
       }
     }
     // Removed CallService
+  }
+
+  override fun onNewIntent(intent: Intent) {
+      super.onNewIntent(intent)
+      if (intent.action == "com.example.domonapperfect.ACTION_SHORTCUT_OPEN_DOOR") {
+          val receiverIntent = Intent(this, OpenDoorReceiver::class.java).apply {
+              action = "com.example.domonapperfect.ACTION_OPEN_DOOR"
+              intent.extras?.let { putExtras(it) }
+          }
+          sendBroadcast(receiverIntent)
+          
+          // Clear any lingering call since they explicitly pressed a shortcut
+          CallManager.rejectCall()
+          
+          // Move task to back so it doesn't interrupt them unnecessarily,
+          // or just leave it. Moving to back makes the shortcut feel more seamless.
+          moveTaskToBack(true)
+      }
   }
 
   private fun checkAndRequestPermissions() {
@@ -122,7 +167,7 @@ class MainActivity : ComponentActivity() {
           }
       }
 
-      // 4. Ignore Battery Optimizations
+    // 4. Ignore Battery Optimizations
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
           val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
           if (!pm.isIgnoringBatteryOptimizations(packageName)) {
@@ -134,6 +179,47 @@ class MainActivity : ComponentActivity() {
                   // Ignore if not supported
               }
           }
+      }
+  }
+
+  private fun updateShortcuts() {
+      lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+          val app = application as DomonapApplication
+          if (!app.authRepository.isAuthorized()) return@launch
+
+          val keysResult = app.intercomRepository.getKeys()
+          val keys = keysResult.getOrNull() ?: return@launch
+          val customizations = app.intercomRepository.getDoorCustomizations()
+
+          val sortedKeys = keys.sortedBy { customizations[it.id]?.orderIndex ?: 0 }.take(4)
+          
+          val shortcuts = sortedKeys.map { key ->
+              val customName = customizations[key.id]?.customName
+              val displayName = if (!customName.isNullOrBlank()) customName else key.name
+
+              val intent = Intent(this@MainActivity, OpenDoorReceiver::class.java).apply {
+                  action = "com.example.domonapperfect.ACTION_OPEN_DOOR"
+                  putExtra("KEY_ID", key.id)
+                  putExtra("DOOR_NAME", displayName)
+              }
+
+              // Since shortcuts prefer activities, we can route it through MainActivity, 
+              // or just use receiver. If receiver fails on some launchers, we use MainActivity.
+              val activityIntent = Intent(this@MainActivity, MainActivity::class.java).apply {
+                  action = "com.example.domonapperfect.ACTION_SHORTCUT_OPEN_DOOR"
+                  putExtra("KEY_ID", key.id)
+                  putExtra("DOOR_NAME", displayName)
+              }
+
+              androidx.core.content.pm.ShortcutInfoCompat.Builder(this@MainActivity, key.id)
+                  .setShortLabel(displayName)
+                  .setLongLabel("Открыть $displayName")
+                  .setIcon(androidx.core.graphics.drawable.IconCompat.createWithResource(this@MainActivity, android.R.drawable.ic_lock_idle_lock))
+                  .setIntent(activityIntent)
+                  .build()
+          }
+
+          androidx.core.content.pm.ShortcutManagerCompat.setDynamicShortcuts(this@MainActivity, shortcuts)
       }
   }
 }

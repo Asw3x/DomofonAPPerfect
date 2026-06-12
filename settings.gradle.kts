@@ -22,6 +22,8 @@ dependencyResolutionManagement {
             }
         }
         mavenCentral()
+        maven { url = uri("https://download.linphone.org/maven_repository/") }
+        maven { url = uri("https://gitlab.linphone.org/BC/public/maven_repository/raw/master") }
     }
 }
 

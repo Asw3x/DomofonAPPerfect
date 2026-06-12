@@ -138,25 +138,51 @@ class IntercomViewModel(
         _uiState.value = _uiState.value.copy(customizations = newMap)
     }
 
+    private fun swapOrder(doorId: String, isUp: Boolean) {
+        val currentFolderId = _uiState.value.customizations[doorId]?.folderId
+        
+        val folderKeys = _uiState.value.keys.filter {
+            _uiState.value.customizations[it.id]?.folderId == currentFolderId
+        }.sortedBy { _uiState.value.customizations[it.id]?.orderIndex ?: 0 }
+        
+        val currentIndex = folderKeys.indexOfFirst { it.id == doorId }
+        if (currentIndex == -1) return
+        
+        val targetIndex = if (isUp) currentIndex - 1 else currentIndex + 1
+        if (targetIndex < 0 || targetIndex >= folderKeys.size) return
+        
+        val targetDoorId = folderKeys[targetIndex].id
+        
+        val newCustomizations = _uiState.value.customizations.toMutableMap()
+        folderKeys.forEachIndexed { index, keyResponse ->
+            val cust = newCustomizations[keyResponse.id] ?: DoorCustomization(doorId = keyResponse.id)
+            newCustomizations[keyResponse.id] = cust.copy(orderIndex = index)
+        }
+        
+        val currentCust = newCustomizations[doorId]!!
+        val targetCust = newCustomizations[targetDoorId]!!
+        
+        newCustomizations[doorId] = currentCust.copy(orderIndex = targetIndex)
+        newCustomizations[targetDoorId] = targetCust.copy(orderIndex = currentIndex)
+        
+        repository.saveDoorCustomizations(newCustomizations)
+        _uiState.value = _uiState.value.copy(customizations = newCustomizations)
+    }
+
     fun moveDoorUp(doorId: String) {
-        val current = _uiState.value.customizations[doorId] ?: DoorCustomization(doorId = doorId)
-        val updated = current.copy(orderIndex = current.orderIndex - 1)
-        val newMap = _uiState.value.customizations + (doorId to updated)
-        repository.saveDoorCustomizations(newMap)
-        _uiState.value = _uiState.value.copy(customizations = newMap)
+        swapOrder(doorId, true)
     }
 
     fun moveDoorDown(doorId: String) {
-        val current = _uiState.value.customizations[doorId] ?: DoorCustomization(doorId = doorId)
-        val updated = current.copy(orderIndex = current.orderIndex + 1)
-        val newMap = _uiState.value.customizations + (doorId to updated)
-        repository.saveDoorCustomizations(newMap)
-        _uiState.value = _uiState.value.copy(customizations = newMap)
+        swapOrder(doorId, false)
     }
 
     fun openDoor(keyId: String) {
         if (_uiState.value.openingKeys.contains(keyId)) return
         _uiState.value = _uiState.value.copy(openingKeys = _uiState.value.openingKeys + keyId)
+        
+        com.example.domonapperfect.CallManager.markDoorOpened(keyId)
+        
         viewModelScope.launch {
             val result = repository.openRelay(keyId)
             val errorMsg = result.exceptionOrNull()?.message
@@ -178,13 +204,32 @@ class IntercomViewModel(
         _uiState.value = _uiState.value.copy(actionMessage = null)
     }
 
+    private val _isDoNotDisturbEnabled = MutableStateFlow(authRepository.isDoNotDisturbEnabled())
+    val isDoNotDisturbEnabled: StateFlow<Boolean> = _isDoNotDisturbEnabled.asStateFlow()
+
+    fun setDoNotDisturbEnabled(enabled: Boolean) {
+        authRepository.setDoNotDisturbEnabled(enabled)
+        _isDoNotDisturbEnabled.value = enabled
+    }
+
+    private val _callWindowDelaySeconds = MutableStateFlow(authRepository.getCallWindowDelaySeconds())
+    val callWindowDelaySeconds: StateFlow<Int> = _callWindowDelaySeconds.asStateFlow()
+
+    fun setCallWindowDelaySeconds(seconds: Int) {
+        authRepository.setCallWindowDelaySeconds(seconds)
+        _callWindowDelaySeconds.value = seconds
+    }
+
     class Factory(
-        private val repository: IntercomRepository,
+        private val intercomRepository: IntercomRepository,
         private val authRepository: AuthRepository
     ) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return IntercomViewModel(repository, authRepository) as T
+            if (modelClass.isAssignableFrom(IntercomViewModel::class.java)) {
+                @Suppress("UNCHECKED_CAST")
+                return IntercomViewModel(intercomRepository, authRepository) as T
+            }
+            throw IllegalArgumentException("Unknown ViewModel class")
         }
     }
 }

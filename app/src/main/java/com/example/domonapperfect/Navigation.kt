@@ -17,6 +17,15 @@ fun MainNavigation(application: DomonapApplication) {
   val startRoute = if (authRepository.isAuthorized()) Main else Login
   val backStack = rememberNavBackStack(startRoute)
 
+  androidx.compose.runtime.LaunchedEffect(authRepository) {
+      authRepository.authStateFlow.collect { isAuthorized ->
+          if (!isAuthorized) {
+              backStack.clear()
+              backStack.add(Login)
+          }
+      }
+  }
+
   NavDisplay(
     backStack = backStack,
     onBack = { backStack.removeLastOrNull() },

@@ -54,7 +54,7 @@ fun HistoryScreen(viewModel: IntercomViewModel) {
             verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier.fillMaxSize()
         ) {
-            items(callHistory!!) { log ->
+            items(items = callHistory!!, key = { it.callId ?: it.startTime ?: it.hashCode() }) { log ->
                 CallHistoryCard(log, onImageClick = { url ->
                     fullScreenImageUrl = url
                 })
