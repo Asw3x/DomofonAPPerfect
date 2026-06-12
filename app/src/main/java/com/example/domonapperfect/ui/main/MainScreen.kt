@@ -220,7 +220,7 @@ fun MainScreen(
         topBar = {
             if (selectedTab == 0) {
                 TopAppBar(
-                    title = { Text("Domonap Perfect") },
+                    title = { Text("Domofon App Perfect") },
                     actions = {
                         IconButton(onClick = { showCreateFolderDialog = true }) {
                             Icon(Icons.Default.Add, contentDescription = "Создать папку")
