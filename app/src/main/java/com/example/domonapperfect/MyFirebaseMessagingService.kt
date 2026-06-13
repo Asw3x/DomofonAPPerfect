@@ -116,6 +116,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 
                 // Currently no CallService, we can just launch MainActivity directly for manual open
                 val callIntent = Intent(this@MyFirebaseMessagingService, MainActivity::class.java).apply {
+                    setPackage(packageName)
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
                     putExtra("from_call_notification", true)
                 }
@@ -135,6 +136,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
                 // Action to Open Door
                 val openIntent = Intent(this@MyFirebaseMessagingService, OpenDoorReceiver::class.java).apply {
+                    setPackage(packageName)
                     action = "com.example.domonapperfect.ACTION_OPEN_DOOR"
                     putExtra("KEY_ID", keyIdToOpen)
                     val customName = app.intercomRepository.getDoorCustomizations()[keyIdToOpen]?.customName
