@@ -1,0 +1,29 @@
+﻿{
+  "project_info": {
+    "project_number": "918596892022",
+    "project_id": "domonapapp",
+    "storage_bucket": "domonapapp.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:918596892022:android:1601890629e9c194bcf657",
+        "android_client_info": {
+          "package_name": "ru.domonap.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCVicq-nTUBIocFk6aOh5aZS7UnDBBioiU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
