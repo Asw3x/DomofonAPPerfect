@@ -29,12 +29,10 @@ class AuthRepository(
         return try {
             val response = api.authorize(AuthorizeBody(PhoneNumberDto(countryCode, number)))
             if (response.isSuccessful) {
-                val rawBody = response.body()?.string()
-                android.util.Log.d("Auth", "Authorize Success Body: $rawBody")
                 Result.success(Unit)
             } else {
                 val errBody = response.errorBody()?.string()
-                android.util.Log.e("Auth", "Authorize Error ${response.code()}: $errBody")
+                android.util.Log.e("Auth", "Authorize Error ${response.code()}")
                 Result.failure(Exception("HTTP ${response.code()}: $errBody"))
             }
         } catch (e: Exception) {
@@ -48,7 +46,6 @@ class AuthRepository(
             val response = api.confirmAuthorization(ConfirmAuthorizationBody(phoneNumber = PhoneNumberDto(countryCode, number), confirmCode = code, deviceToken = deviceToken))
             if (response.isSuccessful) {
                 val rawBody = response.body()?.string() ?: ""
-                android.util.Log.d("Auth", "Confirm Success Body: $rawBody")
                 try {
                     val jsonObject = org.json.JSONObject(rawBody)
                     val completeToken = jsonObject.optJSONObject("completeToken")
@@ -60,14 +57,14 @@ class AuthRepository(
                         token = jsonObject.optString("token")
                         Result.success(Unit)
                     } else {
-                        Result.failure(Exception("Token not found in response: $rawBody"))
+                        Result.failure(Exception("Token not found in response"))
                     }
                 } catch (e: Exception) {
                     Result.failure(Exception("Failed to parse token: ${e.message}"))
                 }
             } else {
                 val errBody = response.errorBody()?.string()
-                android.util.Log.e("Auth", "Confirm Error ${response.code()}: $errBody")
+                android.util.Log.e("Auth", "Confirm Error ${response.code()}")
                 Result.failure(Exception("HTTP ${response.code()}: $errBody"))
             }
         } catch (e: Exception) {
